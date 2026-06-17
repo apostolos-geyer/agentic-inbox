@@ -18,6 +18,8 @@
 		"deploy": "npm run build && wrangler deploy",
 		"dev": "react-router dev",
 		"setup:access": "node scripts/setup-access.mjs",
+		"setup:email": "node scripts/setup-email-routing.mjs",
+		"provision:token": "node scripts/provision-token.mjs",
 		"preview": "npm run build && vite preview",
 		"typecheck": "npm run cf-typegen && react-router typegen && tsc -b"
 	},
