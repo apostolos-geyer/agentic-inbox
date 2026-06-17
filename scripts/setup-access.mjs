@@ -174,7 +174,18 @@ async function resolveTeamDomain() {
   try {
     org = await cf(`/accounts/${accountId}/access/organizations`);
   } catch (e) {
-    org = null; // treat any error as "no org yet"
+    // Don't silently treat a permission/auth failure as "no org" — that masks a
+    // bad token and sends setup down the wrong "create an org" path.
+    const code = e.cfErrors?.[0]?.code;
+    if (e.status === 401 || e.status === 403 || code === 10000) {
+      die(
+        `Could not read the Zero Trust org: ${e.message}. Your CLOUDFLARE_API_TOKEN ` +
+          `is likely missing the "Access: Organizations, Identity Providers, and ` +
+          `Groups" permission for this account.`,
+      );
+    }
+    org = null; // genuine "no org yet"
+    log(`  (no Zero Trust org found: ${e.message})`);
   }
 
   if (org?.auth_domain) return `https://${org.auth_domain}`;
