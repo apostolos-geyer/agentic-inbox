@@ -10,9 +10,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [
-    // WRANGLER_CONFIG lets a single build target a specific wrangler config
-    // (e.g. the separate `wrangler.si.jsonc` instance). Unset -> default wrangler.jsonc.
-    cloudflare({ viteEnvironment: { name: "ssr" }, configPath: process.env.WRANGLER_CONFIG }),
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
     reactRouter(),
     tsconfigPaths(),

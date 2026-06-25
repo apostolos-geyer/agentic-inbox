@@ -1,5 +1,20 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
+	// Two instances of Agentic Inbox live in this one config as named environments:
+	//   • apostoli            -> Worker "agentic-inbox"     (apostoli.ca)
+	//   • somewhatintelligent -> Worker "agentic-inbox-si"  (mail.somewhatintelligent.ca)
+	//
+	// Build selects the environment via CLOUDFLARE_ENV (the @cloudflare/vite-plugin
+	// reads it), then `wrangler deploy` follows the generated redirect:
+	//   apostoli            : npm run deploy:apostoli   (or: npm run deploy)
+	//   somewhatintelligent : npm run deploy:si
+	//
+	// The top-level config is also the default (no CLOUDFLARE_ENV) and equals the
+	// apostoli instance, so dev/typegen/bare `wrangler deploy` behave as before.
+	//
+	// NOTE: wrangler "non-inheritable" keys (vars, durable_objects, r2_buckets, ai,
+	// send_email) are NOT inherited by named environments and must be repeated in
+	// each. `migrations` is top-level only and is shared across environments.
 	"name": "agentic-inbox",
 	"compatibility_date": "2025-11-28",
 	"main": "./workers/app.ts",
@@ -9,63 +24,86 @@
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
+	"migrations": [
+		{ "tag": "v1", "new_sqlite_classes": ["MailboxDO"] },
+		{ "tag": "v2", "new_sqlite_classes": ["EmailAgent"] },
+		{ "tag": "v3", "new_sqlite_classes": ["EmailMCP"] }
+	],
+
+	// ---- top-level defaults (== apostoli instance) -------------------------
 	"vars": {
-		// Production deploys must also define POLICY_AUD and TEAM_DOMAIN.
-		// TEAM_DOMAIN may be the base Access URL or the full /cdn-cgi/access/certs URL.
-		// The worker now fails closed outside local development if Access is not configured.
+		// Production deploys must also define POLICY_AUD and TEAM_DOMAIN (set as
+		// secrets by scripts/setup-access.mjs). TEAM_DOMAIN may be the base Access
+		// URL or the full /cdn-cgi/access/certs URL. The worker fails closed
+		// outside local development if Access is not configured.
 		"DOMAINS": "apostoli.ca",
 		"EMAIL_ADDRESSES": []
 	},
 	"send_email": [
-		{
-			"name": "EMAIL",
-			"remote": true
-		}
+		{ "name": "EMAIL", "remote": true }
 	],
 	"r2_buckets": [
-		{
-			"binding": "BUCKET",
-			"bucket_name": "agentic-inbox",
-			"preview_bucket_name": "agentic-inbox"
-		}
+		{ "binding": "BUCKET", "bucket_name": "agentic-inbox", "preview_bucket_name": "agentic-inbox" }
 	],
 	"ai": {
 		"binding": "AI"
 	},
 	"durable_objects": {
 		"bindings": [
-			{
-				"name": "MAILBOX",
-				"class_name": "MailboxDO"
-			},
-			{
-				"name": "EMAIL_AGENT",
-				"class_name": "EmailAgent"
-			},
-			{
-				"name": "EMAIL_MCP",
-				"class_name": "EmailMCP"
-			}
+			{ "name": "MAILBOX", "class_name": "MailboxDO" },
+			{ "name": "EMAIL_AGENT", "class_name": "EmailAgent" },
+			{ "name": "EMAIL_MCP", "class_name": "EmailMCP" }
 		]
 	},
-	"migrations": [
-		{
-			"tag": "v1",
-			"new_sqlite_classes": [
-				"MailboxDO"
-			]
+
+	// ---- named environments ------------------------------------------------
+	"env": {
+		"apostoli": {
+			"name": "agentic-inbox",
+			"vars": {
+				"DOMAINS": "apostoli.ca",
+				"EMAIL_ADDRESSES": []
+			},
+			"send_email": [
+				{ "name": "EMAIL", "remote": true }
+			],
+			"r2_buckets": [
+				{ "binding": "BUCKET", "bucket_name": "agentic-inbox", "preview_bucket_name": "agentic-inbox" }
+			],
+			"ai": {
+				"binding": "AI"
+			},
+			"durable_objects": {
+				"bindings": [
+					{ "name": "MAILBOX", "class_name": "MailboxDO" },
+					{ "name": "EMAIL_AGENT", "class_name": "EmailAgent" },
+					{ "name": "EMAIL_MCP", "class_name": "EmailMCP" }
+				]
+			}
 		},
-		{
-			"tag": "v2",
-			"new_sqlite_classes": [
-				"EmailAgent"
-			]
-		},
-		{
-			"tag": "v3",
-			"new_sqlite_classes": [
-				"EmailMCP"
-			]
+
+		"somewhatintelligent": {
+			"name": "agentic-inbox-si",
+			"vars": {
+				"DOMAINS": "mail.somewhatintelligent.ca",
+				"EMAIL_ADDRESSES": []
+			},
+			"send_email": [
+				{ "name": "EMAIL", "remote": true }
+			],
+			"r2_buckets": [
+				{ "binding": "BUCKET", "bucket_name": "agentic-inbox-si", "preview_bucket_name": "agentic-inbox-si" }
+			],
+			"ai": {
+				"binding": "AI"
+			},
+			"durable_objects": {
+				"bindings": [
+					{ "name": "MAILBOX", "class_name": "MailboxDO" },
+					{ "name": "EMAIL_AGENT", "class_name": "EmailAgent" },
+					{ "name": "EMAIL_MCP", "class_name": "EmailMCP" }
+				]
+			}
 		}
-	]
+	}
 }

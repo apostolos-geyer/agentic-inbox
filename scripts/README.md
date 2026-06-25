@@ -11,6 +11,33 @@ Run order for a fresh deploy:
 3. `npm run setup:access` — put Cloudflare Access in front of the Worker.
 4. `npm run setup:email` — route inbound mail to the Worker.
 
+## Environments (multiple instances)
+
+`wrangler.jsonc` defines two instances as named environments, sharing this one
+codebase:
+
+| Env (`CLOUDFLARE_ENV`) | Worker | Domain |
+| --- | --- | --- |
+| _(none)_ / `apostoli` | `agentic-inbox` | `apostoli.ca` |
+| `somewhatintelligent` | `agentic-inbox-si` | `mail.somewhatintelligent.ca` |
+
+The setup scripts read the selected env's `name`/`DOMAINS` when `CLOUDFLARE_ENV`
+is set, and `setup:access` derives its policy name as `<worker>-access`. The
+`:si` npm scripts wire this up for the second instance:
+
+```bash
+npm run deploy:si          # CLOUDFLARE_ENV=somewhatintelligent build + deploy
+CLOUDFLARE_ACCOUNT_ID=<id> CLOUDFLARE_API_TOKEN="$(cat .cf-setup-token)" \
+  ACCESS_EMAILS="a@x.com,b@y.com" npm run setup:access:si
+CLOUDFLARE_ACCOUNT_ID=<id> CLOUDFLARE_API_TOKEN="$(cat .cf-setup-token)" \
+  npm run setup:email:si
+```
+
+The `mail.` web UI is served via a Worker [custom domain]; receiving uses MX +
+SPF on the subdomain plus the catch-all rule.
+
+[custom domain]: https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
+
 ---
 
 ## provision-token.mjs (`npm run provision:token`)

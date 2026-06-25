@@ -16,9 +16,13 @@
 		"build": "react-router build",
 		"cf-typegen": "wrangler types",
 		"deploy": "npm run build && wrangler deploy",
+		"deploy:apostoli": "CLOUDFLARE_ENV=apostoli npm run build && wrangler deploy",
+		"deploy:si": "CLOUDFLARE_ENV=somewhatintelligent npm run build && wrangler deploy",
 		"dev": "react-router dev",
 		"setup:access": "node scripts/setup-access.mjs",
+		"setup:access:si": "CLOUDFLARE_ENV=somewhatintelligent APP_NAME=\"Agentic Inbox (somewhatintelligent.ca)\" node scripts/setup-access.mjs",
 		"setup:email": "node scripts/setup-email-routing.mjs",
+		"setup:email:si": "CLOUDFLARE_ENV=somewhatintelligent node scripts/setup-email-routing.mjs",
 		"provision:token": "node scripts/provision-token.mjs",
 		"preview": "npm run build && vite preview",
 		"typecheck": "npm run cf-typegen && react-router typegen && tsc -b"

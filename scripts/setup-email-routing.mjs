@@ -26,8 +26,9 @@
 // Env vars:
 //   CLOUDFLARE_API_TOKEN   (required) see scopes above
 //   CLOUDFLARE_ACCOUNT_ID  (optional) narrows the zone lookup to one account
-//   RECEIVE_DOMAIN         domain to receive at (default: DOMAINS in wrangler.jsonc)
-//   WORKER_NAME            Worker to route to (default: `name` in wrangler.jsonc)
+//   CLOUDFLARE_ENV         named wrangler env to read (e.g. "somewhatintelligent")
+//   RECEIVE_DOMAIN         domain to receive at (default: DOMAINS of selected env)
+//   WORKER_NAME            Worker to route to (default: `name` of selected env)
 //   RULE_NAME              catch-all rule name (default "agentic-inbox catch-all")
 //   DRY_RUN=1              print intended actions, change nothing
 
@@ -57,22 +58,25 @@ if (!apiToken) {
   );
 }
 
-// Parse a "key": "value" string field out of wrangler.jsonc, tolerating comments.
-function wranglerField(field) {
+// Read wrangler.jsonc (tolerating // comments), resolving the CLOUDFLARE_ENV
+// named environment over the top-level config when set.
+function readWranglerConfig() {
   try {
     const raw = readFileSync(join(repoRoot, "wrangler.jsonc"), "utf8");
-    const stripped = raw
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/(^|[^:])\/\/.*$/gm, "$1");
-    const m = stripped.match(new RegExp(`"${field}"\\s*:\\s*"([^"]+)"`));
-    return m ? m[1] : null;
+    const cfg = JSON.parse(
+      raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1"),
+    );
+    const env = process.env.CLOUDFLARE_ENV;
+    const e = env && cfg.env && cfg.env[env];
+    return e ? { ...cfg, ...e, vars: { ...cfg.vars, ...e.vars } } : cfg;
   } catch {
-    return null;
+    return {};
   }
 }
 
-const receiveDomain = process.env.RECEIVE_DOMAIN || wranglerField("DOMAINS");
-const workerName = process.env.WORKER_NAME || wranglerField("name");
+const wranglerCfg = readWranglerConfig();
+const receiveDomain = process.env.RECEIVE_DOMAIN || wranglerCfg.vars?.DOMAINS;
+const workerName = process.env.WORKER_NAME || wranglerCfg.name;
 const ruleName = process.env.RULE_NAME || "agentic-inbox catch-all";
 
 if (!receiveDomain) die("Could not determine RECEIVE_DOMAIN (set it explicitly).");

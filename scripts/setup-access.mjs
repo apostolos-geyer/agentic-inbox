@@ -30,11 +30,13 @@
 //   ACCESS_EMAILS           comma-separated emails to allow (e.g. "a@x.com,b@y.com")
 //   ACCESS_EMAIL_DOMAIN     allow an entire email domain (e.g. "example.com")
 //                           Provide ACCESS_EMAILS and/or ACCESS_EMAIL_DOMAIN.
-//   WORKER_NAME             defaults to the `name` field in wrangler.jsonc
+//   CLOUDFLARE_ENV          named wrangler env to read (e.g. "somewhatintelligent");
+//                           resolves WORKER_NAME from that env's `name`.
+//   WORKER_NAME             defaults to the `name` of the selected wrangler env
 //   WORKER_HOSTNAME         override the auto-detected workers.dev hostname
 //   TEAM_NAME               only used if NO Zero Trust org exists yet; becomes
 //                           <TEAM_NAME>.cloudflareaccess.com. Pick something unique.
-//   POLICY_NAME             reusable policy name (default "agentic-inbox-access")
+//   POLICY_NAME             reusable policy name (default "<WORKER_NAME>-access")
 //   APP_NAME                Access application name (default "Agentic Inbox")
 //   SESSION_DURATION        Access session length (default "24h")
 //   DRY_RUN=1               print what would happen, set no secrets, create nothing
@@ -76,21 +78,24 @@ if (!apiToken) {
   );
 }
 
-// Worker name: env override, else parse wrangler.jsonc (tolerating // comments).
-function readWranglerName() {
+// Read wrangler.jsonc (tolerating // comments), resolving the CLOUDFLARE_ENV
+// named environment over the top-level config when set.
+function readWranglerConfig() {
   try {
     const raw = readFileSync(join(repoRoot, "wrangler.jsonc"), "utf8");
-    const stripped = raw
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/(^|[^:])\/\/.*$/gm, "$1");
-    const m = stripped.match(/"name"\s*:\s*"([^"]+)"/);
-    return m ? m[1] : null;
+    const cfg = JSON.parse(
+      raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1"),
+    );
+    const env = process.env.CLOUDFLARE_ENV;
+    const e = env && cfg.env && cfg.env[env];
+    return e ? { ...cfg, ...e, vars: { ...cfg.vars, ...e.vars } } : cfg;
   } catch {
-    return null;
+    return {};
   }
 }
 
-const workerName = process.env.WORKER_NAME || readWranglerName();
+const wranglerCfg = readWranglerConfig();
+const workerName = process.env.WORKER_NAME || wranglerCfg.name || null;
 if (!workerName) die("Could not determine WORKER_NAME (set it explicitly).");
 
 // Build the Access policy include rules from the allow-list config.
@@ -112,7 +117,9 @@ if (include.length === 0) {
   );
 }
 
-const policyName = process.env.POLICY_NAME || "agentic-inbox-access";
+// Per-instance policy name, derived from the Worker so each environment gets
+// its own allow-list (e.g. "agentic-inbox-access", "agentic-inbox-si-access").
+const policyName = process.env.POLICY_NAME || `${workerName}-access`;
 const appName = process.env.APP_NAME || "Agentic Inbox";
 const sessionDuration = process.env.SESSION_DURATION || "24h";
 

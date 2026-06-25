@@ -68,6 +68,20 @@ npm run dev
 npm run deploy
 ```
 
+#### Multiple instances
+
+`wrangler.jsonc` defines named environments so the same codebase can run as
+independent Workers. Select one at build time with `CLOUDFLARE_ENV`:
+
+```bash
+npm run deploy            # apostoli.ca            -> Worker "agentic-inbox"
+npm run deploy:si         # mail.somewhatintelligent.ca -> Worker "agentic-inbox-si"
+```
+
+Each environment has its own R2 bucket, Durable Objects, Access policy, and
+Email Routing. See [`scripts/README.md`](./scripts/README.md#environments-multiple-instances)
+for the per-instance setup commands.
+
 ## Prerequisites
 
 - Cloudflare account with a domain
